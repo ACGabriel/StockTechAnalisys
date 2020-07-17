@@ -10,113 +10,18 @@ import numpy as np
 import matplotlib
 import os, sys
 
+
+sys.path.insert(0, './lib')
+from plotZoomMouseWhell import plotZoomMouseWheel 
+from RSI import RSI, printCurrentRSI, AnalyseStockRSI, StockLowRSI
+from exponentialMovingAverage import ExponentialMovingAverage
+from MACD import ComputeMACD
+from helpers import AddOL, AnalyseStockDailyOHLC
+
 matplotlib.rcParams.update({'font.size':9})
 
 START= dt.date.today() - dt.timedelta(365*2)
 END = dt.date.today()-dt.timedelta(0)
-
-# function calculates RSI
-def RSI(prices,n=14):
-    deltas = np.diff(prices)
-    seed = deltas[:n+1]
-    up = seed[seed>=0].sum()/n
-    down = -seed[seed<0].sum()/n
-    rs = up/down
-    rsi = np.zeros_like(prices)
-    rsi[:n] = 100. - 100./(1.+rs)
-    for i in range(n, len(prices)):
-        delta=deltas[i-1]
-        if delta > 0:
-            upval = delta
-            downval = 0.
-        else:
-            downval = -delta
-            upval = 0.
-        up = (up*(n-1) + upval)/n
-        down = (down*(n-1) + downval)/n
-        rs = up/down
-        rsi[i] = 100. - 100./(1.+rs)
-    return rsi
-
-def ExponentialMovingAverage(values, window):
-    weights = np.exp(np.linspace(-1., 0., window))
-    weights /= weights.sum()
-    a = np.convolve(values, weights, mode='full')[:len(values)]
-    a[:window] = a[window]
-    return a
-
-# MACD for ewm built-in function
-def ComputeMACD(data, slow=26, fast=12):
-    '''
-    macd line = 12ema - 26ema
-    signal line = 9ema of the macd line
-    histogram = macd line - signal line
-    '''
-    emaSlow = pd.Series.ewm(data, span=slow).mean()
-    emaFast = pd.Series.ewm(data, span=fast).mean()
-    return emaSlow, emaFast, emaFast-emaSlow
-
-# function is adding '.OL' to the short name of stock from file 'OSBList.txt'
-def AddOL():
-    try:
-        if not os.path.isfile('OSBListOL.txt'):
-            newFile = open("OSBListOL.txt", 'x')
-        newFile = open("OSBListOL.txt", "w")
-        with open('OSBList.txt') as fp:
-            for line in fp.read().splitlines():
-                line.rstrip('\n')
-                newFile.write(line+'.OL\n')
-
-    finally:
-        fp.close()
-        newFile.close()
-
-# function creates list of stocks with RSI between 30-35
-def StockLowRSI():
-    try:
-        if not os.path.isfile('OSBListLowRSI.txt'):
-            newFile = open("OSBListLowRSI.txt", 'x')
-        newFile = open("OSBListLowRSI.txt", "w")
-
-        with open('OSBListOL.txt') as fp:
-            for stock in fp.read().splitlines():
-                stock.rstrip('\n')
-                if (stock!= 'EMAS.OL'):
-                    print(stock)
-                    df = web.DataReader(stock, 'yahoo', START, END)
-                    rsi = RSI(df['Close'])
-                    if (rsi[-1] > 36.0)  and (rsi[-1] <41.0) and (df['Close'][-1]>10):
-                        newFile.write(stock + '\n')
-    finally:
-        fp.close()
-
-def printCurrentRSI(stock):
-    dfStock = web.DataReader(stock, 'yahoo', START, END)
-    rsiStock = RSI(dfStock['Close'])
-    print('{} RSI = {}'.format(stock, rsiStock[-1]))
-
-def AnalyseStockRSI():
-    print('My Stocks:')
-    for myStock in myStocks:
-        printCurrentRSI(myStock)
-
-    print('\nWish List Stocks:')
-    for wishStock in wishList:
-        printCurrentRSI(wishStock)
-
-
-def AnalyseStockDailyOHLC(stockDF):
-    stockDF['diffHL'] = stockDF['High'] - stockDF['Low']
-    stockDF['diffOH'] = stockDF['Open'] - stockDF['High']
-    stockDF['diffOC'] = stockDF['Open'] - stockDF['Low']
-    # print(stockDF[['Open', 'High', 'Low', 'Close', 'diffHL', 'diffOH', 'diffOC']].tail(30))
-    try:
-        if not os.path.isfile('OSBDailyAnalysis.csv'):
-            newFile = open("OSBDailyAnalysis.csv", 'x')
-        newFile = open("OSBDailyAnalysis.csv", "w")
-        stockDF.tail(30).to_csv(newFile, sep='\t', columns=['Open', 'High', 'Low', 'Close', 'diffHL', 'diffOH', 'diffOC'], encoding='utf-8')
-    finally:
-        newFile.close()
 
 # Main Program
 
@@ -126,7 +31,7 @@ myStocks=['FKRAFT.OL','DNB.OL','Bouvet.OL', 'STB.OL', 'MEDI.OL']
 wishList = ['TOM.OL', 'TEL.OL', 'GJF.OL', 'NEL.OL']
 
 # print('Start date: {}, end date: {}'.format(start, end))
-stock = 'FKRAFT.OL'
+# stock = 'FKRAFT.OL'
 # stock = 'MEDI.OL'
 # stock = 'Bouvet.OL'
 # stock = 'AKERBP.OL'
@@ -142,7 +47,7 @@ stock = 'FKRAFT.OL'
 # stock = 'KIT.OL'
 # stock = 'TOM.OL'
 # stock = 'WWI B.OL'
-# stock = 'NORBIT.OL'
+stock = 'STB.OL'
 
 df = web.DataReader(stock, 'yahoo', START, END)
 
@@ -254,6 +159,7 @@ ax0.tick_params(axis='x')
 ax0.tick_params(axis='y')
 ax0.text(0.015, 0.95, 'RSI (14)', va='top', fontsize=7, transform=ax0.transAxes)
 ax0.set_yticks([30,70])
+f = plotZoomMouseWheel(plt, ax0, base_scale = 1.5)
 
 priceLast=df['Close'][-1]
 # print(priceLast)
@@ -285,9 +191,11 @@ plt.subplots_adjust(left=.10, bottom=.12,right=.93, top=.95, wspace=.20, hspace=
 plt.setp(ax0.get_xticklabels(), visible=False)
 plt.setp(ax1.get_xticklabels(), visible=False)
 # AddOL() # needed only if there are changes for Oslo Stock Exchange list
-StockLowRSI() # lists stocks with RSI lower 36 and price over 10 NOK
+# StockLowRSI(START, END) # lists stocks with RSI lower 36 and price over 10 NOK
 
-# AnalyseStockRSI()
+# AnalyseStockRSI(myStocks, wishList)
 
 AnalyseStockDailyOHLC(df)
 plt.show()
+
+
